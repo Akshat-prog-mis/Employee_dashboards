@@ -1,7 +1,9 @@
 <!-- src/routes/tasks/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { fetchTasks, completeTask } from '$lib/api.js';
+  import { getAuthUser } from '$lib/auth.js';
 
   interface Task {
     id: string;
@@ -10,7 +12,7 @@
   }
 
   // State
-  let user_email = "";
+  let user_email: string | null = null;
   let tasks: Task[] = [];
   let loading = false;
   let error = "";
@@ -20,10 +22,14 @@
 
   // Initialize
   onMount(() => {
-    // Load user email
-    user_email = localStorage.getItem("user_email") || "";
+    // 🔐 Get authenticated user
+    user_email = getAuthUser();
+    if (!user_email) {
+      goto('/'); // Redirect to login if not authenticated
+      return;
+    }
 
-    // Load preferences
+    // Load UI preferences
     const savedDark = localStorage.getItem("darkMode");
     darkMode = savedDark === "true";
     document.body.classList.toggle("dark", darkMode);
@@ -33,27 +39,26 @@
       sortOrder = savedSort;
     }
 
-    if (user_email) {
-      loadTasks();
-      const interval = setInterval(loadTasks, 120_000);
-      
-      // Keyboard shortcuts
-      const handleKey = (e: KeyboardEvent) => {
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-        if ((e.key === 'c' || e.key === 'C') && tasks.length > 0) {
-          handleComplete(tasks[0].id);
-        }
-        if (e.key === 'r' || e.key === 'R') {
-          loadTasks();
-        }
-      };
-      window.addEventListener('keydown', handleKey);
-      
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('keydown', handleKey);
-      };
-    }
+    // Load tasks
+    loadTasks();
+    const interval = setInterval(loadTasks, 120_000);
+    
+    // Keyboard shortcuts
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if ((e.key === 'c' || e.key === 'C') && tasks.length > 0) {
+        handleComplete(tasks[0].id);
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        loadTasks();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('keydown', handleKey);
+    };
   });
 
   // Toggle dark mode
@@ -66,7 +71,7 @@
   // Toggle sort order
   function toggleSort() {
     sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
-    localStorage.setItem("taskSortOrder", sortOrder); // ✅ Auto-save
+    localStorage.setItem("taskSortOrder", sortOrder);
     // Re-sort without re-fetching
     tasks = [...tasks].sort((a, b) => {
       const dateA = new Date(a.planned.split('/').reverse().join('-'));
@@ -77,17 +82,18 @@
 
   // Fetch & filter tasks
   async function loadTasks() {
+    if (!user_email) return; // Safety check
+    
     loading = true;
     error = "";
     try {
       const allTasks = await fetchTasks(user_email);
-      // Sort based on current order
       tasks = [...allTasks].sort((a, b) => {
         const dateA = new Date(a.planned.split('/').reverse().join('-'));
         const dateB = new Date(b.planned.split('/').reverse().join('-'));
         return sortOrder === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
       });
-      lastUpdated = new Date(); // ✅ Timestamp
+      lastUpdated = new Date();
     } catch (err) {
       error = "⚠️ " + (err instanceof Error ? err.message : String(err));
     } finally {
@@ -174,7 +180,7 @@
     </div>
   {/if}
 
-  <!-- Keyboard shortcut hint (optional) -->
+  <!-- Keyboard shortcut hint -->
   <p class="hint">💡 Press <kbd>C</kbd> to complete first task, <kbd>R</kbd> to refresh</p>
 </div>
 
@@ -248,6 +254,23 @@
     font-weight: 500;
     transition: all 0.2s;
   }
+
+  :global(body.dark) .sort-btn,
+  :global(body.dark) .theme-toggle {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+
+  .sort-btn:hover, .theme-toggle:hover {
+    background: #e0e0e0;
+  }
+
+  :global(body.dark) .sort-btn:hover,
+  :global(body.dark) .theme-toggle:hover {
+    background: #3a3a3a;
+  }
+
   .subtitle {
     color: #666;
     font-size: 1rem;
@@ -282,32 +305,6 @@
 
   :global(body.dark) kbd {
     background: #333;
-  }
-
-  :global(body.dark) .sort-btn,
-  :global(body.dark) .theme-toggle {
-    background: #2a2a2a;
-    border-color: #444;
-    color: #e0e0e0;
-  }
-
-  .sort-btn:hover, .theme-toggle:hover {
-    background: #e0e0e0;
-  }
-
-  :global(body.dark) .sort-btn:hover,
-  :global(body.dark) .theme-toggle:hover {
-    background: #3a3a3a;
-  }
-
-  .subtitle {
-    color: #666;
-    font-size: 1rem;
-    margin: 0 0 24px;
-  }
-
-  :global(body.dark) .subtitle {
-    color: #aaa;
   }
 
   .card {
@@ -410,7 +407,7 @@
     font-size: 1.05rem;
     margin-bottom: 4px;
     word-break: break-word;
-    margin-left:12px;
+    margin-left: 12px;
   }
 
   :global(body.dark) .task-name {
@@ -420,7 +417,7 @@
   .task-date {
     font-size: 0.9rem;
     color: #666;
-    margin-left:12px;
+    margin-left: 12px;
   }
 
   :global(body.dark) .task-date {
@@ -440,7 +437,6 @@
   .btn.primary {
     background: #4CAF50;
     color: white;
-    margin-right:12px;
   }
 
   .btn.primary:hover {
