@@ -1,15 +1,26 @@
 <!-- src/routes/bis-tasks/+page.svelte -->
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { getAuthUser } from '$lib/auth.js';
   import { fetchBisTasks } from '$lib/api.js';
 
-  let user_email = null;
-  let tasks = [];
-  let loading = false;
-  let error = "";
-  let lastUpdated = null;
+  interface BisTask {
+    id: string;
+    planned: string;
+    step: string;
+    description: string;
+    markDoneUrl: string;
+    fmsLink: string;
+    fmsName: string;
+    timeDelayHrs: number;
+  }
+
+  let user_email: string | null = null;
+  let tasks: BisTask[] = [];
+  let loading: boolean = false;
+  let error: string = "";
+  let lastUpdated: Date | null = null;
 
   onMount(() => {
     user_email = getAuthUser();
@@ -30,7 +41,7 @@
     loading = true;
     error = "";
     try {
-      tasks = await fetchBisTasks(user_email);
+      tasks = await fetchBisTasks();
       lastUpdated = new Date();
     } catch (err) {
       error = "⚠️ " + (err instanceof Error ? err.message : String(err));
@@ -39,7 +50,7 @@
     }
   }
 
-  function openLink(url) {
+  function openLink(url: string) {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   }
 </script>

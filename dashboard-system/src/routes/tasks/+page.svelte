@@ -88,7 +88,7 @@
     loading = true;
     error = "";
     try {
-      const allTasks = await fetchTasks(user_email);
+      const allTasks = await fetchTasks();
       tasks = [...allTasks].sort((a, b) => {
         const dateA = new Date(a.planned.split('/').reverse().join('-'));
         const dateB = new Date(b.planned.split('/').reverse().join('-'));
