@@ -1,188 +1,183 @@
-@import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
-
-
 .global-header {
-background: white;
-box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-padding: 0 20px;
-position: sticky;
-top: 0;
-z-index: 100;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 :global(body.dark) .global-header {
-background: #1e1e1e;
-box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    background: #1e1e1e;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .header-content {
-max-width: 1200px;
-margin: 0 auto;
-display: flex;
-justify-content: space-between;
-align-items: center;
-padding: 14px 0;
-gap: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    gap: 30px;
 }
 
 .app-brand h1 {
-font-size: 1.4rem;
-font-weight: 700;
-color: #1a1a1a;
-margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0;
 }
 
 :global(body.dark) .app-brand h1 {
-color: #e0e0e0;
+    color: #e0e0e0;
 }
 
 .breadcrumbs {
-display: flex;
-align-items: center;
-gap: 8px;
-font-size: 0.95rem;
-color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    color: #666;
 }
 
 :global(body.dark) .breadcrumbs {
-color: #aaa;
+    color: #aaa;
 }
 
 /* ✅ FIXED: Button-specific styles */
 .breadcrumb-home {
-background: none;
-border: none;
-color: #4CAF50;
-font: inherit;
-cursor: pointer;
-text-decoration: underline;
-padding: 0;
-margin: 0;
+    background: none;
+    border: none;
+    color: #4CAF50;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    margin: 0;
 }
 
 .breadcrumb-home:hover {
-opacity: 0.8;
+    opacity: 0.8;
 }
 
 :global(body.dark) .breadcrumb-home {
-color: #66bb6a;
+    color: #66bb6a;
 }
 
 .breadcrumb-separator {
-color: #ccc;
+    color: #ccc;
 }
 
 :global(body.dark) .breadcrumb-separator {
-color: #555;
+    color: #555;
 }
 
 .breadcrumb-current {
-font-weight: 500;
-color: #222;
+    font-weight: 500;
+    color: #222;
 }
 
 :global(body.dark) .breadcrumb-current {
-color: #fff;
+    color: #fff;
 }
 
 .user-actions {
-display: flex;
-align-items: center;
-gap: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 /* ✅ FIXED: Notification as button */
 .notification-badge {
-background: none;
-border: none;
-font-size: 1.2rem;
-cursor: pointer;
-color: #555;
-position: relative;
-padding: 0;
-margin: 0;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #555;
+    position: relative;
+    padding: 0;
+    margin: 0;
 }
 
 :global(body.dark) .notification-badge {
-color: #ccc;
+    color: #ccc;
 }
 
 .badge-count {
-position: absolute;
-top: -6px;
-right: -8px;
-background: #f44336;
-color: white;
-font-size: 0.7rem;
-font-weight: bold;
-min-width: 16px;
-height: 16px;
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-padding: 0 2px;
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background: #f44336;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2px;
 }
 
 .user-email {
-font-size: 0.95rem;
-color: #444;
-max-width: 200px;
-overflow: hidden;
-text-overflow: ellipsis;
-white-space: nowrap;
+    font-size: 0.95rem;
+    color: #444;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 :global(body.dark) .user-email {
-color: #ccc;
+    color: #ccc;
 }
 
 .btn.logout {
-background: #f1f1f1;
-color: #d32f2f;
-border: none;
-padding: 6px 12px;
-border-radius: 6px;
-font-size: 0.85rem;
-cursor: pointer;
-transition: all 0.2s;
+    background: #f1f1f1;
+    color: #d32f2f;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
 .btn.logout:hover {
-background: #e0e0e0;
+    background: #e0e0e0;
 }
 
 :global(body.dark) .btn.logout {
-background: #2a2a2a;
-color: #ff6b6b;
+    background: #2a2a2a;
+    color: #ff6b6b;
 }
 
 :global(body.dark) .btn.logout:hover {
-background: #3a3a3a;
+    background: #3a3a3a;
 }
 
 .main-content {
-max-width: 1200px;
-margin: 0 auto;
-padding: 24px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 20px;
 }
 
 @media (max-width: 768px) {
-.header-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-}
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
 
-.breadcrumbs {
-    order: 3;
-    margin-top: 8px;
-}
+    .breadcrumbs {
+        order: 3;
+        margin-top: 8px;
+    }
 
-.user-actions {
-    align-self: flex-end;
-    margin-top: 4px;
-}
+    .user-actions {
+        align-self: flex-end;
+        margin-top: 4px;
+    }
 }
