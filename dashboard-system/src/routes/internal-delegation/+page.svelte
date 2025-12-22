@@ -1,5 +1,5 @@
 <!-- src/routes/internal-delegation/+page.svelte -->
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { getAuthUser, getEmployeeName } from '$lib/auth.js';
@@ -9,18 +9,42 @@
     updateDelegationTask 
   } from '$lib/api.js';
 
+  interface User {
+    name: string;
+    email: string;
+    department: string;
+  }
+
+  interface Task {
+    task_id: string;
+    title: string;
+    requester_email: string;
+    assignee_email: string;
+    due_date?: string;
+    description?: string;
+    status: string;
+  }
+
+  interface FormData {
+    title: string;
+    assignee: string;
+    dueDate: string;
+    description: string;
+    status: string;
+  }
+
   // State
-  let user_email = null;
-  let tasks = [];
-  let users = [];
-  let loading = false;
-  let error = "";
+  let user_email: string | null = null;
+  let tasks: Task[] = [];
+  let users: User[] = [];
+  let loading: boolean = false;
+  let error: string = "";
   let stats = { total: 0, pending: 0, inProgress: 0, completed: 0, blocked: 0 };
 
   // Modals
-  let showModal = null; // 'add', 'update', 'delete'
-  let selectedTask = null;
-  let formData = {
+  let showModal: string | null = null; // 'add', 'update', 'delete'
+  let selectedTask: Task | null = null;
+  let formData: FormData = {
     title: "",
     assignee: "",
     dueDate: new Date().toISOString().split('T')[0],
@@ -29,7 +53,7 @@
   };
 
   // Config
-  const STATUS_CONFIG = {
+  const STATUS_CONFIG: Record<string, { color: string; icon: string; desc: string }> = {
     "Assigned": { color: "#6B7280", icon: "📋", desc: "Newly assigned" },
     "In Progress": { color: "#3B82F6", icon: "⚡", desc: "Being worked on" },
     "Blocked": { color: "#EF4444", icon: "🚫", desc: "Needs attention" },
@@ -64,26 +88,26 @@
       // Calculate stats
       stats = {
         total: tasks.length,
-        pending: tasks.filter(t => t.status === "Assigned").length,
-        inProgress: tasks.filter(t => t.status === "In Progress").length,
-        completed: tasks.filter(t => t.status === "Completed").length,
-        blocked: tasks.filter(t => t.status === "Blocked").length
+        pending: tasks.filter((t: Task) => t.status === "Assigned").length,
+        inProgress: tasks.filter((t: Task) => t.status === "In Progress").length,
+        completed: tasks.filter((t: Task) => t.status === "Completed").length,
+        blocked: tasks.filter((t: Task) => t.status === "Blocked").length
       };
     } catch (err) {
-      error = err.message || "Failed to load data";
+      error = (err as Error).message || "Failed to load data";
     } finally {
       loading = false;
     }
   }
 
   // Helper functions
-  function calculateDaysUntil(dueDateStr) {
+  function calculateDaysUntil(dueDateStr: string | undefined): { text: string; color: string } {
     if (!dueDateStr) return { text: "—", color: "gray" };
     const due = new Date(dueDateStr);
     const today = new Date();
     today.setHours(0,0,0,0);
     due.setHours(0,0,0,0);
-    const diffTime = due - today;
+    const diffTime = due.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) return { text: `⚠️ ${Math.abs(diffDays)} days overdue`, color: "red" };
@@ -92,8 +116,8 @@
     return { text: `📅 ${diffDays} days left`, color: "green" };
   }
 
-  function getUserByEmail(email) {
-    return users.find(u => u.email === email) || { name: email, department: "—" };
+  function getUserByEmail(email: string): { name: string; email: string; department: string } {
+    return users.find((u: User) => u.email === email) || { name: email, email, department: "—" };
   }
 
   // Modal handlers
@@ -108,18 +132,19 @@
   showModal = 'add';
 }
 
-  function openUpdateModal(task) {
+  function openUpdateModal(task: Task) {
     selectedTask = task;
     formData = {
-      ...task,
-      requester: getUserByEmail(task.requester_email).name,
+      title: task.title,
       assignee: getUserByEmail(task.assignee_email).name,
-      dueDate: task.due_date || new Date().toISOString().split('T')[0]
+      dueDate: task.due_date || new Date().toISOString().split('T')[0],
+      description: task.description || "",
+      status: task.status
     };
     showModal = 'update';
   }
 
-  function openDeleteModal(task) {
+  function openDeleteModal(task: Task) {
     selectedTask = task;
     showModal = 'delete';
   }
@@ -136,8 +161,8 @@
 
     const payload = {
       title: formData.title,
-      requester_email: user_email, // ✅ Auto: current user
-      assignee_email: users.find(u => u.name === formData.assignee)?.email,
+      requester_email: user_email!, // ✅ Auto: current user
+      assignee_email: users.find((u: User) => u.name === formData.assignee)?.email,
       // ❌ category: ... → REMOVED
       // ❌ priority: ...  → REMOVED
       due_date: formData.dueDate,
@@ -150,15 +175,15 @@
       showModal = null;
       loadAllData();
     } catch (err) {
-      alert("Failed to create task: " + err.message);
+      alert("Failed to create task: " + (err as Error).message);
     }
   } 
 
   async function handleUpdateSubmit() {
-    const payload = {
-      task_id: selectedTask.task_id,
+    const payload: any = {
+      task_id: selectedTask!.task_id,
       status: formData.status,
-      assignee_email: users.find(u => u.name === formData.assignee)?.email,
+      assignee_email: users.find((u: User) => u.name === formData.assignee)?.email,
       description: formData.description
     };
 
@@ -172,21 +197,21 @@
       selectedTask = null;
       loadAllData();
     } catch (err) {
-      alert("Update failed: " + err.message);
+      alert("Update failed: " + (err as Error).message);
     }
   }
 
   async function handleDeleteConfirm() {
     try {
       await updateDelegationTask({
-        task_id: selectedTask.task_id,
+        task_id: selectedTask!.task_id,
         status: "Cancelled"
       });
       showModal = null;
       selectedTask = null;
       loadAllData();
     } catch (err) {
-      alert("Failed to cancel task: " + err.message);
+      alert("Failed to cancel task: " + (err as Error).message);
     }
   }
 
@@ -273,13 +298,15 @@
 
   <!-- MODALS -->
 {#if showModal === 'add'}
-  <div class="modal-overlay" on:click={closeModal}>
-    <div class="modal-content" on:click|stopPropagation>
-      <h2>➕ Create New Task</h2>
+  <div class="modal-overlay" role="dialog" aria-modal="true" tabindex="-1" on:click={closeModal} on:keydown={(e) => { if (e.key === 'Escape') closeModal(); }}>
+    <div role="presentation" on:click|stopPropagation on:keydown={() => {}}>
+      <div class="modal-content" role="document">
+        <h2>➕ Create New Task</h2>
       
       <div class="form-group">
-        <label>Task Title *</label>
+        <label for="task-title">Task Title *</label>
         <input 
+          id="task-title"
           type="text"
           bind:value={formData.title}
           placeholder="e.g., Update client presentation slides"
@@ -287,8 +314,8 @@
       </div>
       
       <div class="form-group">
-        <label>Assign to *</label>
-        <select bind:value={formData.assignee}>
+        <label for="assignee">Assign to *</label>
+        <select id="assignee" bind:value={formData.assignee}>
           {#each users.map(u => u.name).sort() as name}
             <option value={name}>{name}</option>
           {/each}
@@ -296,8 +323,9 @@
       </div>
       
       <div class="form-group">
-        <label>Due Date</label>
+        <label for="due-date">Due Date</label>
         <input 
+          id="due-date"
           type="date"
           bind:value={formData.dueDate}
           disabled
@@ -306,8 +334,9 @@
       </div>
       
       <div class="form-group">
-        <label>Task Description</label>
+        <label for="task-description">Task Description</label>
         <textarea 
+          id="task-description"
           bind:value={formData.description}
           placeholder="Provide detailed information about what needs to be done..."
           rows="4"
@@ -318,18 +347,20 @@
         <button class="btn secondary" on:click={closeModal}>❌ Cancel</button>
         <button class="btn primary" on:click={handleAddSubmit}>✅ Create Task</button>
       </div>
+      </div>
     </div>
   </div>
 {/if}
 
   {#if showModal === 'update' && selectedTask}
-  <div class="modal-overlay" on:click={closeModal}>
-    <div class="modal-content" on:click|stopPropagation>
-      <h2>✏️ Update Task: {selectedTask.task_id}</h2>
+  <div class="modal-overlay" role="dialog" aria-modal="true" tabindex="-1" on:click={closeModal} on:keydown={(e) => { if (e.key === 'Escape') closeModal(); }}>
+    <div role="presentation" on:click|stopPropagation on:keydown={() => {}}>
+      <div class="modal-content" role="document">
+        <h2>✏️ Update Task: {selectedTask.task_id}</h2>
       
       <div class="form-group">
-        <label>Update Status *</label>
-        <select bind:value={formData.status}>
+        <label for="update-status">Update Status *</label>
+        <select id="update-status" bind:value={formData.status}>
           {#each Object.keys(STATUS_CONFIG) as status}
             <option value={status}>{status}</option>
           {/each}
@@ -337,8 +368,8 @@
       </div>
       
       <div class="form-group">
-        <label>Reassign To</label>
-        <select bind:value={formData.assignee}>
+        <label for="reassign">Reassign To</label>
+        <select id="reassign" bind:value={formData.assignee}>
           {#each users.map(u => u.name).sort() as name}
             <option value={name}>{name}</option>
           {/each}
@@ -347,8 +378,9 @@
       
       {#if formData.status === "Revise Requested"}
         <div class="form-group">
-          <label>New Due Date for Revision *</label>
+          <label for="revise-due-date">New Due Date for Revision *</label>
           <input 
+            id="revise-due-date"
             type="date"
             bind:value={formData.dueDate}
             min={new Date().toISOString().split('T')[0]}
@@ -357,17 +389,19 @@
       {/if}
       
       <div class="form-group">
-        <label>Update Description (optional)</label>
+        <label for="update-description">Update Description (optional)</label>
         <textarea 
+          id="update-description"
           bind:value={formData.description}
           placeholder="Add notes or update task details..."
           rows="3"
-        >{selectedTask.description}</textarea>
+        >{selectedTask!.description}</textarea>
       </div>
       
       <div class="modal-actions">
         <button class="btn secondary" on:click={closeModal}>❌ Cancel</button>
         <button class="btn primary" on:click={handleUpdateSubmit}>💾 Save Changes</button>
+      </div>
       </div>
     </div>
   </div>
@@ -721,12 +755,6 @@
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
 
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-
   .modal-actions {
     display: flex;
     gap: 1rem;
@@ -735,10 +763,6 @@
   }
 
   @media (max-width: 768px) {
-    .form-row {
-      grid-template-columns: 1fr;
-    }
-    
     .modal-actions {
       flex-direction: column;
     }

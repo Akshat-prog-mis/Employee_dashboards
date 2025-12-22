@@ -1,23 +1,30 @@
 <!-- src/routes/+page.svelte -->
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { authenticate, saveAuth, getAuthUser, getEmployeeName } from '$lib/auth.js';
   import { goto } from '$app/navigation';
   import { fetchSystems } from '$lib/api.js';
   import './page.css'
 
+  interface SystemItem {
+    name: string;
+    url: string;
+    description: string;
+    associatedLink?: string;
+  }
+
   // Auth state
-  let email = "";
-  let password = "";
-  let error = "";
-  let loading = false;
-  let authenticated = false;
+  let email: string = "";
+  let password: string = "";
+  let error: string = "";
+  let loading: boolean = false;
+  let authenticated: boolean = false;
 
   // Systems state
-  let launcherItems = [];
-  let mySystemItems = [];
-  let systemsLoading = false;
-  let systemsError = "";
+  let launcherItems: SystemItem[] = [];
+  let mySystemItems: SystemItem[] = [];
+  let systemsLoading: boolean = false;
+  let systemsError: string = "";
 
   onMount(() => {
     const user = getAuthUser();
@@ -59,7 +66,7 @@
     mySystemItems = [];
   }
 
-  function handleKeyDown(e) {
+  function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') handleLogin();
   }
 
@@ -77,7 +84,7 @@
     }
   }
 
-  function openLink(url) {
+  function openLink(url: string) {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   }
 </script>
@@ -98,21 +105,21 @@
       <a href="/tasks" class="dashboard-card">
         <div class="card-icon">🧾</div>
         <h2>My Due Tasks</h2>
-        <p>Daily task management .</p>
+        <p>Daily task management.</p>
         <div class="card-arrow">→</div>
       </a>
 
       <a href="/bis-tasks" class="dashboard-card">
         <div class="card-icon">📊</div>
         <h2>BIS Due Tasks</h2>
-        <p>Complete your Due tasks. </p>
+        <p>Complete your due tasks.</p>
         <div class="card-arrow">→</div>
       </a>
 
       <a href="/internal-delegation" class="dashboard-card">
         <div class="card-icon">👥</div>
-        <h2>Internal  Delegation</h2>
-        <p>Assgin or complete Task</p>
+        <h2>Internal Delegation</h2>
+        <p>Assign or complete tasks.</p>
         <div class="card-arrow">→</div>
       </a>
     </div>
@@ -140,11 +147,11 @@
                   role="button"
                   tabindex="0"
                   class="associated-link-btn"
-                  on:click|stopPropagation={(e) => openLink(item.associatedLink)}
+                  on:click|stopPropagation={(e) => openLink(item.associatedLink!)}
                   on:keydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      openLink(item.associatedLink);
+                      openLink(item.associatedLink!);
                     }
                   }}
                 >
@@ -181,11 +188,11 @@
                   role="button"
                   tabindex="0"
                   class="associated-link-btn"
-                  on:click|stopPropagation={(e) => openLink(item.associatedLink)}
+                  on:click|stopPropagation={(e) => openLink(item.associatedLink!)}
                   on:keydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      openLink(item.associatedLink);
+                      openLink(item.associatedLink!);
                     }
                   }}
                 >
