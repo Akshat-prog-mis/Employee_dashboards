@@ -5,6 +5,8 @@ import { getAuthUser } from "./auth.js";
 const API_URL = "https://script.google.com/macros/s/AKfycbxoM2rTP7vIcg9TuhQ9OQYcZV7GSaGvY36rhXJ4aVr5wxY4iQsB42et4MSzEu1aSRzDWw/exec";
 const BIS_API_URL = "https://script.google.com/macros/s/AKfycbzhhJ23A2VZkiumm2pCh1q5aLjDpbchviIBdQ61n8slWHA7_wpQYPvw-dZrYqVl_zjS/exec";
 const SYSTEMS_API_URL = "https://script.google.com/macros/s/AKfycbwpx2eTMnFxg9WBBo9Pzf-sq8FNz8yCz-Xo4jfGQRXoLz44hS5p1yLrLVRTjzyEikb2ug/exec";
+const DELEGATION_API_URL = "https://script.google.com/macros/s/AKfycbyKEUw5uusEaMXzdyUBMZGlEYRp3avkjPnRS7nF04097UBWS2rLzyfbMJbZc0oLaCR1/exec";
+
 
 // ✅ Helper: Get current user email (consistent across all functions)
 function getCurrentUserEmail() {
@@ -155,4 +157,53 @@ export async function fetchSystems() {
     console.error("❌ fetchSystems error:", err);
     throw new Error("Failed to load systems: " + err.message);
   }
+}
+
+// ✅ NEW: Internal Delegation APIs
+
+export async function fetchDelegationData() {
+  const user_email = getAuthUser();
+  if (!user_email) throw new Error("Not authenticated");
+
+  try {
+    const [tasksRes, usersRes] = await Promise.all([
+      fetch(`${DELEGATION_API_URL}?action=get_tasks`),
+      fetch(`${DELEGATION_API_URL}?action=get_users`)
+    ]);
+
+    const tasks = (await tasksRes.json()) || [];
+    const users = (await usersRes.json()) || [];
+
+    // ✅ Filter: Show only tasks assigned TO user OR assigned BY user
+    const filteredTasks = tasks.filter(task => 
+      task.assignee_email?.toLowerCase() === user_email.toLowerCase() ||
+      task.requester_email?.toLowerCase() === user_email.toLowerCase()
+    );
+
+    return { tasks: filteredTasks, users };
+  } catch (err) {
+    throw new Error("Failed to load delegation data: " + err.message);
+  }
+}
+
+export async function createDelegationTask(payload) {
+  const res = await fetch(`${DELEGATION_API_URL}?action=create_task`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || "Unknown error");
+  return data;
+}
+
+export async function updateDelegationTask(payload) {
+  const res = await fetch(`${DELEGATION_API_URL}?action=update_task`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || "Unknown error");
+  return data;
 }

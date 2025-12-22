@@ -18,8 +18,11 @@
       return;
     }
     loadTasks();
-    const interval = setInterval(loadTasks, 120_000);
-    return () => clearInterval(interval);
+// const autoRefresh = setTimeout(() => {
+//     loadAllData();
+//   }, 4 * 60 * 60 * 1000);
+
+//   return () => clearTimeout(autoRefresh);
   });
 
   async function loadTasks() {
