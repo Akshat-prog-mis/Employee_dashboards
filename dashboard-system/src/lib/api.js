@@ -1,6 +1,8 @@
 import { getAuthUser } from './auth.js';
 const CACHE = new Map();
 const CACHE_TTL = 30 * 1000; // 30 seconds
+const CF_PROXY = 'https://employeedas.mis-truetone.workers.dev';
+
 
 // API Endpoints
 const API_BASES = {
@@ -77,31 +79,44 @@ function formatDateTime(date) {
  */
 async function apiFetch(url, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  // 👇 Route through Cloudflare Worker
+  const proxyUrl = `${CF_PROXY}?target=${encodeURIComponent(url)}`;
+
+
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+    const res = await fetch(proxyUrl, {
+      ...options,
+      signal: controller.signal
+    });
+
     clearTimeout(timeoutId);
-    // Check for HTML response (e.g., Google Apps Script permission error)
+
     const text = await res.text();
+
+    // GAS sometimes screams in HTML instead of JSON
     if (text.trim().startsWith('<')) {
-      console.error('API returned HTML (likely permission/CORS issue):', text.substring(0, 200));
-      throw new Error('Service unavailable. Please contact admin.');
+      console.error('HTML from backend:', text.substring(0, 200));
+      throw new Error('Service unavailable. Contact admin.');
     }
+
     const json = text ? JSON.parse(text) : {};
+
     if (!res.ok) {
-      // ✅ Fixed: use backticks for template literal
       throw new Error(json.error || `HTTP ${res.status}`);
     }
+
     return json;
   } catch (err) {
     clearTimeout(timeoutId);
-    const error = /** @type {Error} */ (err);
-    if (error.name === 'AbortError') {
+    if (err.name === 'AbortError') {
       throw new Error('Request timed out');
     }
-    throw error;
+    throw err;
   }
 }
+
 
 // ========== TASKS API ==========
 export async function fetchTasks() {
@@ -319,8 +334,10 @@ export async function createDelegationTask(payload) {
 
   return delegationFetch('create_task', user_email, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    headers: {
+  'Content-Type': 'application/x-www-form-urlencoded'
+},
+    body: new URLSearchParams(payload)
   });
 }
 
@@ -336,7 +353,9 @@ export async function updateDelegationTask(payload) {
 
   return delegationFetch('update_task', user_email, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    headers: {
+  'Content-Type': 'application/x-www-form-urlencoded'
+},
+    body: new URLSearchParams(payload)
   });
 }

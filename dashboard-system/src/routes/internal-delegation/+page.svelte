@@ -927,6 +927,9 @@
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    display: flex;
+    padding: 20px;
+    box-sizing: border-box;
   }
 
   .modal-content {
@@ -938,6 +941,9 @@
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    scroll-behavior: smooth;
+    display: flex;
+    flex-direction: column;
   }
 
   :global(body.dark) .modal-content {
@@ -975,6 +981,8 @@
     font-size: 1rem;
     background: #fafafa;
     color: #1f1f1f;
+    box-sizing: border-box;
+    resize: vertical;
   }
 
   :global(body.dark) .form-group input,
