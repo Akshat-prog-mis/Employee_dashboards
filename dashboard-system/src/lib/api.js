@@ -1,11 +1,9 @@
 import { getAuthUser } from './auth.js';
+
 const CACHE = new Map();
-const CACHE_TTL = 30 * 1000; // 30 seconds
+const CACHE_TTL = 30 * 1000;
 const CF_PROXY = 'https://employeedas.mis-truetone.workers.dev';
 
-
-
-// API Endpoints
 const API_BASES = {
   tasks: 'https://script.google.com/macros/s/AKfycbwEG5QTclinIyBCGzqnY6ofnx1mw6gh5RW1ogTjcBjUghssttCc0YZLGkKSuXB1xRl9/exec',
   bis: 'https://script.google.com/macros/s/AKfycby7CrJGDyOhEkjRDgZe0rGRCztzniMVW1G6G9fYfyDbiG77EAtEvD1zjSWp1wN3a9jTjg/exec',
@@ -13,350 +11,246 @@ const API_BASES = {
   delegation: 'https://script.google.com/macros/s/AKfycbwdoJqTCz9ocP02UBPtasFuImG-gHK8r-TBmQg3NvvOuF83SHiTrv_kOn3nop_Po2XW/exec'
 };
 
-// ========== Shared Utilities ==========
+/* ================= AUTH ================= */
+
 function getCurrentUserEmail() {
   const email = getAuthUser();
-  if (!email) throw new Error('Authentication required');
+  if (!email) throw new Error('AUTH_REQUIRED');
   return email.toLowerCase();
-} 
-
-// Parse ISO or locale date safely
-/**
- * @param {string | null | undefined} dateStr
- * @returns {Date | null}
- */
-function parseDate(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? null : d;
 }
 
-// Normalize date for comparison (set to start of day)
-/**
- * @param {Date | null | undefined} date
- * @returns {Date | null}
- */
-function normalizeDate(date) {
-  if (!date) return null;
-  const d = new Date(date);
+/* ================= DATE UTILS ================= */
+
+const parseDate = v => {
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+};
+
+const normalizeDate = d => {
+  if (!d) return null;
   d.setHours(0, 0, 0, 0);
   return d;
-}
+};
 
-// Format date as DD/MM/YYYY
-/**
- * @param {Date | null | undefined} date
- * @returns {string}
- */
-function formatDate(date) {
-  if (!date) return '';
-  const d = new Date(date);
-  return d.toLocaleDateString('en-GB');
-}
+const formatDate = d =>
+  d ? new Date(d).toLocaleDateString('en-GB') : '';
 
-// Format datetime as DD/MM/YYYY, HH:MM (24h)
-/**
- * @param {Date | null | undefined} date
- * @returns {string}
- */
-function formatDateTime(date) {
-  if (!date) return '';
-  const d = new Date(date);
-  return d.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).replace(',', '');
-}
+const formatDateTime = d =>
+  d
+    ? new Date(d)
+        .toLocaleString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        })
+        .replace(',', '')
+    : '';
 
-// ✅ Robust fetch with timeout and HTML error check
-/**
- * @param {string} url
- * @param {RequestInit} options
- * @returns {Promise<any>}
- */
+/* ================= CORE FETCH ================= */
+
 async function apiFetch(url, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  // 👇 Route through Cloudflare Worker
+  const timeout = setTimeout(() => controller.abort(), 10000);
   const proxyUrl = `${CF_PROXY}?target=${encodeURIComponent(url)}`;
 
-
   try {
-    const res = await fetch(proxyUrl, {
-      ...options,
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
+    const res = await fetch(proxyUrl, { ...options, signal: controller.signal });
     const text = await res.text();
 
-    // GAS sometimes screams in HTML instead of JSON
     if (text.trim().startsWith('<')) {
-      console.error('HTML from backend:', text.substring(0, 200));
-      throw new Error('Service unavailable. Contact admin.');
+      throw new Error('BACKEND_RETURNED_HTML');
     }
 
-    const json = text ? JSON.parse(text) : {};
+    const json = text ? JSON.parse(text) : null;
 
     if (!res.ok) {
-      throw new Error(json.error || `HTTP ${res.status}`);
+      throw new Error(json?.error || `HTTP_${res.status}`);
     }
 
-    return json;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      throw new Error('Request timed out');
-    }
-    throw err;
+    return { ok: true, data: json, error: null };
+  } catch (e) {
+    return {
+      ok: false,
+      data: null,
+      error: e.name === 'AbortError' ? 'TIMEOUT' : e.message
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
+/* ================= CACHE WRAPPER ================= */
 
-// ========== TASKS API ==========
+async function cachedFetch(key, fetcher) {
+  const now = Date.now();
+  const cached = CACHE.get(key);
+
+  if (cached && now - cached.ts < CACHE_TTL) return cached.value;
+
+  const result = await fetcher();
+  if (result.ok) CACHE.set(key, { value: result, ts: now });
+  return result;
+}
+
+/* ================= TASKS ================= */
+
 export async function fetchTasks() {
   const email = getCurrentUserEmail();
-  const cacheKey = `tasks:${email}`;
-  const now = Date.now();
+  return cachedFetch(`tasks:${email}`, async () => {
+    const res = await apiFetch(
+      `${API_BASES.tasks}?action=getTasks&user_email=${encodeURIComponent(email)}`
+    );
 
-  if (CACHE.has(cacheKey)) {
-    const cached = CACHE.get(cacheKey);
-    if (now - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-  }
+    if (!res.ok) return res;
 
-  try {
-    // ✅ Pass user_email to backend!
-    const data = await apiFetch(`${API_BASES.tasks}?action=getTasks&user_email=${encodeURIComponent(email)}`);
     const today = normalizeDate(new Date());
-    if (!today) throw new Error('Invalid current date');
-    const tasks = (Array.isArray(data) ? data : [])
-      .filter(row => {
-        const planned = parseDate(row.Planned);
-        if (!planned) return false;
-        const normalized = normalizeDate(planned);
-        if (!normalized) return false;
+
+    const data = (Array.isArray(res.data) ? res.data : [])
+      .filter(r => {
+        const p = normalizeDate(parseDate(r.Planned));
         return (
-          row.Email?.toLowerCase() === email &&
-          !row.Actual &&
-          (!row['Task Status'] || row['Task Status'] === 'Due') &&
-          normalized <= today
+          r.Email?.toLowerCase() === email &&
+          !r.Actual &&
+          (!r['Task Status'] || r['Task Status'] === 'Due') &&
+          p && p <= today
         );
       })
-      .map(row => ({
-        id: String(row['Task ID'] || ''),
-        name: String(row.Task || '(No title)'),
-        planned: formatDate(parseDate(row.Planned))
+      .map(r => ({
+        id: String(r['Task ID'] || ''),
+        name: String(r.Task || ''),
+        planned: formatDate(r.Planned)
       }));
 
-    const result = tasks;
-    CACHE.set(cacheKey, { data: result, timestamp: now });
-    return result;
-  } catch (err) {
-    throw err;
-  }
-}
-
-/**
- * @param {string} taskId
- * @returns {Promise<boolean>}
- */
-export async function completeTask(taskId) {
-  if (!taskId) throw new Error('Task ID required');
-  await apiFetch(`${API_BASES.tasks}?action=markCompleted&task_id=${encodeURIComponent(taskId)}`);
-  return true;
-}
-
-// ========== BIS TASKS API ==========
-// ========== BIS TASKS API ==========
-export async function fetchBisTasks() {
-  const email = getCurrentUserEmail();
-  const cacheKey = `bis:${email}`;
-  const now = Date.now();
-
-  // ✅ Return cached result if fresh
-  if (CACHE.has(cacheKey)) {
-    const cached = CACHE.get(cacheKey);
-    if (now - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-  }
-
-  try {
-    const data = await apiFetch(`${API_BASES.bis}?action=getBisTasks&user_email=${encodeURIComponent(email)}`);
-    const nowDate = normalizeDate(new Date());
-    if (!nowDate) throw new Error('Invalid current date');
-    const tasks = (Array.isArray(data) ? data : [])
-      .filter(row => {
-        const planned = parseDate(row.Planned);
-        if (!planned) return false;
-        const normalized = normalizeDate(planned);
-        if (!normalized) return false;
-        return (
-          row['Doer Email']?.toLowerCase() === email &&
-          normalized <= nowDate
-        );
-      })
-      .map(row => {
-        const plannedDate = parseDate(row.Planned);
-        if (!plannedDate) throw new Error('Invalid planned date');
-        const delayMs = Date.now() - plannedDate.getTime();
-        const timeDelayHrs = delayMs > 0 ? Math.floor(delayMs / (1000 * 60 * 60)) : 0;
-        return {
-          id: String(row['Unique Keys'] || ''),
-          planned: formatDateTime(plannedDate),
-          step: String(row.Step || ''),
-          description: String(row.How || ''),
-          markDoneUrl: String(row.Link || ''),
-          fmsLink: String(row['FMS Link'] || ''),
-          fmsName: String(row['FMS Name'] || ''),
-          timeDelayHrs
-        };
-      });
-
-    // ✅ Cache the result
-    const result = tasks;
-    CACHE.set(cacheKey, { data: result, timestamp: now });
-    return result;
-  } catch (err) {
-    // Don't cache errors
-    throw err;
-  }
-}
-
-// ========== SYSTEMS API ==========
-export async function fetchSystems() {
-  const email = getCurrentUserEmail();
-  const cacheKey = `systems:${email}`;
-  const now = Date.now();
-
-  // ✅ Return cached result if fresh
-  if (CACHE.has(cacheKey)) {
-    const cached = CACHE.get(cacheKey);
-    if (now - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-  }
-
-  try {
-    const data = await apiFetch(`${API_BASES.systems}?action=getSystems&user_email=${encodeURIComponent(email)}`);
-    /** @type {any[]} */
-    const launcher = [];
-    /** @type {any[]} */
-    const mySystem = [];
-
-    (Array.isArray(data) ? data : [])
-      .filter(row => {
-        const rowEmail = String(row['Doer Email'] || '').trim().toLowerCase();
-        return (
-          rowEmail === email &&
-          row['System Name'] &&
-          row['System URL'] &&
-          (row['Starter/ Performer'] === 'S' || row['Starter/ Performer'] === 'P')
-        );
-      })
-      .forEach(row => {
-        const item = {
-          name: String(row['System Name']),
-          url: String(row['System URL']),
-          description: String(row['Description'] || ''),
-          associatedLink: row['Associated Links'] ? String(row['Associated Links']) : null
-        };
-        if (row['Starter/ Performer'] === 'S') {
-          launcher.push(item);
-        } else if (row['Starter/ Performer'] === 'P') {
-          mySystem.push(item);
-        }
-      });
-
-    const result = { launcher, mySystem };
-    // ✅ Cache the result
-    CACHE.set(cacheKey, { data: result, timestamp: now });
-    return result;
-  } catch (err) {
-    // Don't cache errors
-    throw err;
-  }
-}
-
-// ========== DELEGATION API ==========
-
-function delegationFetch(action, user_email, options = {}) {
-  const url = `${API_BASES.delegation}?action=${action}&user_email=${encodeURIComponent(user_email)}`;
-  return apiFetch(url, options);
-}
-
-export async function fetchDelegationData() {
-  const user_email = getCurrentUserEmail();
-  const cacheKey = `delegation:${user_email}`;
-  const now = Date.now();
-
-  if (CACHE.has(cacheKey)) {
-    const cached = CACHE.get(cacheKey);
-    if (now - cached.timestamp < CACHE_TTL) {
-      return cached.data;
-    }
-  }
-
-  try {
-    const [tasks, users] = await Promise.all([
-      delegationFetch('get_tasks', user_email),
-      delegationFetch('get_users', user_email)
-    ]);
-
-    const result = {
-      tasks: Array.isArray(tasks) ? tasks : [],
-      users: Array.isArray(users) ? users : []
-    };
-
-    CACHE.set(cacheKey, { data: result, timestamp: now });
-    return result;
-  } catch (err) {
-    throw err;
-  }
-}
-
-/**
- * @param {object} payload
- */
-export async function createDelegationTask(payload) {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Invalid payload');
-  }
-
-  const user_email = getCurrentUserEmail();
-
-  return delegationFetch('create_task', user_email, {
-    method: 'POST',
-    headers: {
-  'Content-Type': 'application/x-www-form-urlencoded'
-},
-    body: new URLSearchParams(payload)
+    return { ok: true, data, error: null };
   });
 }
 
-/**
- * @param {object} payload
- */
-export async function updateDelegationTask(payload) {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Invalid payload');
-  }
+export async function completeTask(taskId) {
+  if (!taskId) throw new Error('TASK_ID_REQUIRED');
+  return apiFetch(
+    `${API_BASES.tasks}?action=markCompleted&task_id=${encodeURIComponent(taskId)}`
+  );
+}
 
-  const user_email = getCurrentUserEmail();
+/* ================= BIS ================= */
 
-  return delegationFetch('update_task', user_email, {
+export async function fetchBisTasks() {
+  const email = getCurrentUserEmail();
+  return cachedFetch(`bis:${email}`, async () => {
+    const res = await apiFetch(
+      `${API_BASES.bis}?action=getBisTasks&user_email=${encodeURIComponent(email)}`
+    );
+    if (!res.ok) return res;
+
+    const today = normalizeDate(new Date());
+
+    const data = (res.data || [])
+      .filter(r => {
+        const p = normalizeDate(parseDate(r.Planned));
+        return r['Doer Email']?.toLowerCase() === email && p && p <= today;
+      })
+      .map(r => {
+        const planned = parseDate(r.Planned);
+        return {
+          id: String(r['Unique Keys']),
+          planned: formatDateTime(planned),
+          step: String(r.Step || ''),
+          description: String(r.How || ''),
+          markDoneUrl: String(r.Link || ''),
+          fmsLink: String(r['FMS Link'] || ''),
+          fmsName: String(r['FMS Name'] || ''),
+          timeDelayHrs: planned
+            ? Math.max(0, Math.floor((Date.now() - planned) / 36e5))
+            : 0
+        };
+      });
+
+    return { ok: true, data, error: null };
+  });
+}
+
+/* ================= SYSTEMS ================= */
+
+export async function fetchSystems() {
+  const email = getCurrentUserEmail();
+  return cachedFetch(`systems:${email}`, async () => {
+    const res = await apiFetch(
+      `${API_BASES.systems}?action=getSystems&user_email=${encodeURIComponent(email)}`
+    );
+    if (!res.ok) return res;
+
+    const launcher = [];
+    const mySystem = [];
+
+    (res.data || []).forEach(r => {
+      if (r['Doer Email']?.toLowerCase() !== email) return;
+
+      const item = {
+        name: r['System Name'],
+        url: r['System URL'],
+        description: r.Description || '',
+        associatedLink: r['Associated Links'] || null
+      };
+
+      r['Starter/ Performer'] === 'S'
+        ? launcher.push(item)
+        : mySystem.push(item);
+    });
+
+    return { ok: true, data: { launcher, mySystem }, error: null };
+  });
+}
+
+/* ================= DELEGATION ================= */
+
+const delegationFetch = (action, email, options = {}) =>
+  apiFetch(
+    `${API_BASES.delegation}?action=${action}&user_email=${encodeURIComponent(
+      email
+    )}`,
+    options
+  );
+
+export async function fetchDelegationData() {
+  const email = getCurrentUserEmail();
+  return cachedFetch(`delegation:${email}`, async () => {
+    const [tasks, users] = await Promise.all([
+      delegationFetch('get_tasks', email),
+      delegationFetch('get_users', email)
+    ]);
+
+    if (!tasks.ok) return tasks;
+    if (!users.ok) return users;
+
+    return {
+      ok: true,
+      data: {
+        tasks: tasks.data || [],
+        users: users.data || []
+      },
+      error: null
+    };
+  });
+}
+
+export const createDelegationTask = payload =>
+  delegationWrite('create_task', payload);
+
+export const updateDelegationTask = payload =>
+  delegationWrite('update_task', payload);
+
+async function delegationWrite(action, payload) {
+  if (!payload || typeof payload !== 'object')
+    throw new Error('INVALID_PAYLOAD');
+
+  const email = getCurrentUserEmail();
+
+  return delegationFetch(action, email, {
     method: 'POST',
-    headers: {
-  'Content-Type': 'application/x-www-form-urlencoded'
-},
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(payload)
   });
 }
