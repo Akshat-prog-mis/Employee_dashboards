@@ -1,34 +1,38 @@
 export default {
   async fetch(request) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }
-      });
-    }
-
     const url = new URL(request.url);
-    const target = url.searchParams.get('target');
 
+    const target = url.searchParams.get('target');
     if (!target) {
-      return new Response('Missing target', { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing target' }),
+        { status: 400 }
+      );
     }
 
-    const resp = await fetch(target, {
-      method: request.method,
-      headers: { 'Content-Type': request.headers.get('Content-Type') || 'application/x-www-form-urlencoded' },
-      body: request.method === 'POST' ? await request.text() : null
+    const targetUrl = new URL(target);
+
+    // 🔥 Forward ALL remaining query params
+    url.searchParams.forEach((value, key) => {
+      if (key !== 'target') {
+        targetUrl.searchParams.set(key, value);
+      }
     });
 
-    return new Response(await resp.text(), {
-      status: resp.status,
+    const res = await fetch(targetUrl.toString(), {
+      method: request.method,
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': request.headers.get('Content-Type') || 'application/json'
+      },
+      body: request.method === 'GET' ? null : request.body
+    });
+
+    const headers = new Headers(res.headers);
+    headers.set('Access-Control-Allow-Origin', '*');
+
+    return new Response(res.body, {
+      status: res.status,
+      headers
     });
   }
 };
