@@ -40,7 +40,7 @@
   let error: string = "";
   let stats = { total: 0, pending: 0, inProgress: 0, completed: 0, blocked: 0 };
   let lastUpdated: Date | null = null;
-  let sortOrder = 'asc'; // 'asc' or 'desc'
+  let sortOrder = 'asc';
   let refreshIndicator = false;
 
   let showModal: string | null = null;
@@ -62,49 +62,57 @@
     "Cancelled": { colorClass: "status-cancelled", label: "Cancelled" }
   };
 
+  // ------------------ MOUNT ------------------
   onMount(() => {
-  user_email = getAuthUser();
-  if (!user_email) {
-    goto('/');
-    return;
-  }
-
-  loadAllData(true);
-
-  const interval = setInterval(() => {
-    lastUpdated = new Date();
-    refreshIndicator = true;
-    loadAllData(true);
-    setTimeout(() => refreshIndicator = false, 1000);
-  }, 120000);
-
-  const handleKey = (e: KeyboardEvent) => {
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      (e.target as HTMLElement).isContentEditable
-    ) return;
-
-    if (e.key === 'r' || e.key === 'R') {
-      loadAllData(true);
+    user_email = getAuthUser();
+    if (!user_email) {
+      goto('/');
+      return;
     }
-  };
 
-  window.addEventListener('keydown', handleKey);
+    loadAllData(true);
 
-  return () => {
-    window.removeEventListener('keydown', handleKey);
-    clearInterval(interval);
-  };
-});
+    const interval = setInterval(() => {
+      lastUpdated = new Date();
+      refreshIndicator = true;
+      loadAllData(true).finally(() => refreshIndicator = false);
+    }, 120000);
 
+    const handleKey = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).isContentEditable
+      ) return;
 
+      if (e.key === 'r' || e.key === 'R') {
+        loadAllData(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      clearInterval(interval);
+    };
+  });
+
+  // ------------------ LOAD DATA ------------------
   async function loadAllData(force = false) {
   loading = true;
   error = "";
+
   try {
-    const { tasks: t, users: u } =
-      await fetchDelegationData({ force });
+    const res = await fetchDelegationData();
+
+    if (!res.ok || !res.data) {
+      throw new Error(res.error || "Invalid API response");
+    }
+
+    // ✅ correct destructuring
+    const t = Array.isArray(res.data.tasks) ? res.data.tasks : [];
+    const u = Array.isArray(res.data.users) ? res.data.users : [];
 
     const sorted = [...t].sort((a, b) => {
       const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
@@ -126,6 +134,8 @@
     lastUpdated = new Date();
   } catch (err) {
     error = (err as Error).message || "Failed to load data";
+    tasks = [];
+    users = [];
   } finally {
     loading = false;
   }
@@ -141,14 +151,13 @@
     });
   }
 
-  function calculateDaysUntil(dueDateStr: string | undefined): { text: string; variant: 'overdue' | 'urgent' | 'normal' | 'none' } {
+  function calculateDaysUntil(dueDateStr: string | undefined) {
     if (!dueDateStr) return { text: "—", variant: 'none' };
     const due = new Date(dueDateStr);
     const today = new Date();
     today.setHours(0,0,0,0);
     due.setHours(0,0,0,0);
     const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
     if (diffDays < 0) return { text: `${Math.abs(diffDays)} days overdue`, variant: 'overdue' };
     if (diffDays === 0) return { text: "Due today", variant: 'urgent' };
     if (diffDays <= 3) return { text: `${diffDays} days left`, variant: 'urgent' };
@@ -159,6 +168,7 @@
     return users.find(u => u.email === email) || { name: email, email, department: "—" };
   }
 
+  // ------------------ MODALS ------------------
   function openAddModal() {
     formData = {
       title: "",
@@ -188,74 +198,60 @@
   }
 
   async function handleAddSubmit() {
-  if (!formData.title.trim()) {
-    alert("Please enter a task title.");
-    return;
-  }
-  if (!formData.assignee) {
-    alert("Please select an assignee.");
-    return;
-  }
-
-  const assignee = users.find(u => u.name === formData.assignee);
-  if (!assignee) return;
-
-  try {
-    // ✅ Remove requester_email - backend sets it automatically
-    await createDelegationTask({
-      title: formData.title,
-      assignee_email: assignee.email,
-      due_date: formData.dueDate,
-      description: formData.description
-      // status is auto-set to "Assigned" in backend
-    });
-    showModal = null;
-    loadAllData();
-  } catch (err) {
-    alert("Failed to create task: " + (err as Error).message);
-  }
-}
-
-  async function handleUpdateSubmit() {
-  if (!selectedTask) return;
-
-  const payload: any = {
-    task_id: selectedTask.task_id,
-    status: formData.status,
-    description: formData.description
-  };
-
-  // Only change assignee if user selected one
-  if (formData.assignee) {
+    if (!formData.title.trim()) return alert("Please enter a task title.");
+    if (!formData.assignee) return alert("Please select an assignee.");
     const assignee = users.find(u => u.name === formData.assignee);
     if (!assignee) return;
-    payload.assignee_email = assignee.email;
+
+    try {
+      await createDelegationTask({
+        title: formData.title,
+        assignee_email: assignee.email,
+        due_date: formData.dueDate,
+        description: formData.description
+      });
+      showModal = null;
+      loadAllData(true);
+    } catch (err) {
+      alert("Failed to create task: " + (err as Error).message);
+    }
   }
 
-  if (formData.status === "Revise Requested" && formData.dueDate) {
-    payload.due_date = formData.dueDate;
+  async function handleUpdateSubmit() {
+    if (!selectedTask) return;
+    const payload: any = {
+      task_id: selectedTask.task_id,
+      status: formData.status,
+      description: formData.description
+    };
+    if (formData.assignee) {
+      const assignee = users.find(u => u.name === formData.assignee);
+      if (!assignee) return;
+      payload.assignee_email = assignee.email;
+    }
+    if (formData.status === "Revise Requested" && formData.dueDate) {
+      payload.due_date = formData.dueDate;
+    }
+    try {
+      await updateDelegationTask(payload);
+      showModal = null;
+      selectedTask = null;
+      loadAllData(true);
+    } catch (err) {
+      alert("Update failed: " + (err as Error).message);
+    }
   }
-
-  try {
-    await updateDelegationTask(payload);
-    showModal = null;
-    selectedTask = null;
-    loadAllData(true);
-  } catch (err) {
-    alert("Update failed: " + (err as Error).message);
-  }
-}
-
 
   async function handleDeleteConfirm() {
+    if (!selectedTask) return;
     try {
       await updateDelegationTask({
-        task_id: selectedTask!.task_id,
+        task_id: selectedTask.task_id,
         status: "Cancelled"
       });
       showModal = null;
       selectedTask = null;
-      loadAllData();
+      loadAllData(true);
     } catch (err) {
       alert("Failed to cancel task: " + (err as Error).message);
     }
@@ -266,6 +262,7 @@
     selectedTask = null;
   }
 </script>
+
 
 <div class="delegation-dashboard">
   <!-- Header -->
@@ -422,7 +419,7 @@
             <label for="assignee">Assign to *</label>
             <select id="assignee" bind:value={formData.assignee}>
               <option value="">— Select —</option>
-              {#each users.map(u => u.name).sort() as name}
+              {#each (users ?? []).map(u => u.name).sort() as name}
                 <option value={name}>{name}</option>
               {/each}
             </select>
@@ -454,7 +451,7 @@
             <label for="reassign">Reassign To</label>
             <select id="reassign" bind:value={formData.assignee}>
               <option value="">— Keep current —</option>
-              {#each users.map(u => u.name).sort() as name}
+              {#each (users ?? []).map(u => u.name).sort() as name}
                 <option value={name}>{name}</option>
               {/each}
             </select>
