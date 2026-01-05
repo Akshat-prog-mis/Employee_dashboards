@@ -42,7 +42,6 @@
   let lastUpdated: Date | null = null;
   let sortOrder = 'asc'; // 'asc' or 'desc'
   let refreshIndicator = false;
-  const CACHE = new Map();
 
   let showModal: string | null = null;
   let selectedTask: Task | null = null;
@@ -70,21 +69,14 @@
     return;
   }
 
-  // Load data immediately
-  loadAllData().catch(err => {
-    console.error("Initial load failed:", err);
-  });
+  loadAllData(true);
 
-  // ✅ Auto-refresh: Clear cache every 2 minutes for fresh data
   const interval = setInterval(() => {
-  const cacheKey = `delegation:${user_email}`;
-  CACHE.delete(cacheKey);
-  lastUpdated = new Date();
-  
-  // Optional: show brief refresh indicator
-  refreshIndicator = true;
-  setTimeout(() => refreshIndicator = false, 1000);
-}, 120000);
+    lastUpdated = new Date();
+    refreshIndicator = true;
+    loadAllData(true);
+    setTimeout(() => refreshIndicator = false, 1000);
+  }, 120000);
 
   const handleKey = (e: KeyboardEvent) => {
     if (
@@ -94,12 +86,7 @@
     ) return;
 
     if (e.key === 'r' || e.key === 'R') {
-      // Manual refresh: clear cache AND reload
-      const cacheKey = `delegation:${user_email}`;
-      CACHE.delete(cacheKey);
-      loadAllData().catch(err => {
-        console.error("Refresh failed:", err);
-      });
+      loadAllData(true);
     }
   };
 
@@ -107,37 +94,43 @@
 
   return () => {
     window.removeEventListener('keydown', handleKey);
-    clearInterval(interval); // ✅ Clean up interval
+    clearInterval(interval);
   };
 });
 
-  async function loadAllData() {
-    loading = true;
-    error = "";
-    try {
-      const { tasks: t, users: u } = await fetchDelegationData();
-      const sorted = [...t].sort((a, b) => {
-        const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-        const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-      });
-      tasks = sorted;
-      users = u;
 
-      stats = {
-        total: tasks.length,
-        pending: tasks.filter(t => t.status === "Assigned").length,
-        inProgress: tasks.filter(t => t.status === "In Progress").length,
-        completed: tasks.filter(t => t.status === "Completed").length,
-        blocked: tasks.filter(t => t.status === "Blocked").length
-      };
-      lastUpdated = new Date();
-    } catch (err) {
-      error = (err as Error).message || "Failed to load data";
-    } finally {
-      loading = false;
-    }
+  async function loadAllData(force = false) {
+  loading = true;
+  error = "";
+  try {
+    const { tasks: t, users: u } =
+      await fetchDelegationData({ force });
+
+    const sorted = [...t].sort((a, b) => {
+      const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+      const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+
+    tasks = sorted;
+    users = u;
+
+    stats = {
+      total: tasks.length,
+      pending: tasks.filter(t => t.status === "Assigned").length,
+      inProgress: tasks.filter(t => t.status === "In Progress").length,
+      completed: tasks.filter(t => t.status === "Completed").length,
+      blocked: tasks.filter(t => t.status === "Blocked").length
+    };
+
+    lastUpdated = new Date();
+  } catch (err) {
+    error = (err as Error).message || "Failed to load data";
+  } finally {
+    loading = false;
   }
+}
+
 
   function toggleSort() {
     sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
@@ -224,29 +217,35 @@
 }
 
   async function handleUpdateSubmit() {
+  if (!selectedTask) return;
+
+  const payload: any = {
+    task_id: selectedTask.task_id,
+    status: formData.status,
+    description: formData.description
+  };
+
+  // Only change assignee if user selected one
+  if (formData.assignee) {
     const assignee = users.find(u => u.name === formData.assignee);
     if (!assignee) return;
-
-    const payload: any = {
-      task_id: selectedTask!.task_id,
-      status: formData.status,
-      assignee_email: assignee.email,
-      description: formData.description
-    };
-
-    if (formData.status === "Revise Requested" && formData.dueDate) {
-      payload.due_date = formData.dueDate;
-    }
-
-    try {
-      await updateDelegationTask(payload);
-      showModal = null;
-      selectedTask = null;
-      loadAllData();
-    } catch (err) {
-      alert("Update failed: " + (err as Error).message);
-    }
+    payload.assignee_email = assignee.email;
   }
+
+  if (formData.status === "Revise Requested" && formData.dueDate) {
+    payload.due_date = formData.dueDate;
+  }
+
+  try {
+    await updateDelegationTask(payload);
+    showModal = null;
+    selectedTask = null;
+    loadAllData(true);
+  } catch (err) {
+    alert("Update failed: " + (err as Error).message);
+  }
+}
+
 
   async function handleDeleteConfirm() {
     try {

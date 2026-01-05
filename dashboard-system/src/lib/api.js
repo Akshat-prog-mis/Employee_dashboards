@@ -7,7 +7,7 @@ const API_BASES = {
   tasks: 'https://script.google.com/macros/s/AKfycbwEG5QTclinIyBCGzqnY6ofnx1mw6gh5RW1ogTjcBjUghssttCc0YZLGkKSuXB1xRl9/exec',
   bis: 'https://script.google.com/macros/s/AKfycby7CrJGDyOhEkjRDgZe0rGRCztzniMVW1G6G9fYfyDbiG77EAtEvD1zjSWp1wN3a9jTjg/exec',
   systems: 'https://script.google.com/macros/s/AKfycbwmYPnRKjTH9H_RdM7WBQQ1TzvxYQKQuE6k7UAMFQgL0_DVe4KteuVm6BubHTF7WkAZWw/exec',
-  delegation: 'https://script.google.com/macros/s/AKfycbzBNI6aIfiS8_yi0wNj5OqQdttDKzmgJShoO1rR3qAitDh1naxu2AoDsfIkddkLMkpC/exec'
+  delegation: 'https://script.google.com/macros/s/AKfycbwdoJqTCz9ocP02UBPtasFuImG-gHK8r-TBmQg3NvvOuF83SHiTrv_kOn3nop_Po2XW/exec'
 };
 
 // ========== Shared Utilities ==========
@@ -15,7 +15,7 @@ function getCurrentUserEmail() {
   const email = getAuthUser();
   if (!email) throw new Error('Authentication required');
   return email.toLowerCase();
-}
+} 
 
 // Parse ISO or locale date safely
 /**
@@ -271,12 +271,17 @@ export async function fetchSystems() {
 }
 
 // ========== DELEGATION API ==========
+
+function delegationFetch(action, user_email, options = {}) {
+  const url = `${API_BASES.delegation}?action=${action}&user_email=${encodeURIComponent(user_email)}`;
+  return apiFetch(url, options);
+}
+
 export async function fetchDelegationData() {
   const user_email = getCurrentUserEmail();
   const cacheKey = `delegation:${user_email}`;
   const now = Date.now();
 
-  // ✅ Add caching
   if (CACHE.has(cacheKey)) {
     const cached = CACHE.get(cacheKey);
     if (now - cached.timestamp < CACHE_TTL) {
@@ -285,19 +290,16 @@ export async function fetchDelegationData() {
   }
 
   try {
-    // ✅ Pass user_email to both endpoints
     const [tasks, users] = await Promise.all([
-      apiFetch(`${API_BASES.delegation}?action=get_tasks&user_email=${encodeURIComponent(user_email)}`),
-      apiFetch(`${API_BASES.delegation}?action=get_users&user_email=${encodeURIComponent(user_email)}`)
+      delegationFetch('get_tasks', user_email),
+      delegationFetch('get_users', user_email)
     ]);
-    
-    // ✅ Backend already filters tasks - no need to filter again
+
     const result = {
       tasks: Array.isArray(tasks) ? tasks : [],
       users: Array.isArray(users) ? users : []
     };
-    
-    // ✅ Cache the result
+
     CACHE.set(cacheKey, { data: result, timestamp: now });
     return result;
   } catch (err) {
@@ -305,15 +307,17 @@ export async function fetchDelegationData() {
   }
 }
 
-// ✅ Add user_email to create/update calls
 /**
- * @param {any} payload
- * @returns {Promise<any>}
+ * @param {object} payload
  */
 export async function createDelegationTask(payload) {
-  if (!payload || typeof payload !== 'object') throw new Error('Invalid payload');
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid payload');
+  }
+
   const user_email = getCurrentUserEmail();
-  return await apiFetch(`${API_BASES.delegation}?action=create_task&user_email=${encodeURIComponent(user_email)}`, {
+
+  return delegationFetch('create_task', user_email, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -321,13 +325,16 @@ export async function createDelegationTask(payload) {
 }
 
 /**
- * @param {any} payload
- * @returns {Promise<any>}
+ * @param {object} payload
  */
 export async function updateDelegationTask(payload) {
-  if (!payload || typeof payload !== 'object') throw new Error('Invalid payload');
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid payload');
+  }
+
   const user_email = getCurrentUserEmail();
-  return await apiFetch(`${API_BASES.delegation}?action=update_task&user_email=${encodeURIComponent(user_email)}`, {
+
+  return delegationFetch('update_task', user_email, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
