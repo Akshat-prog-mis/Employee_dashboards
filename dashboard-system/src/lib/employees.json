@@ -1,80 +1,80 @@
 [
-  {
-    "name": "Akshat K Goyal",
-    "department": "MDO",
-    "email": "mis.truetone@gmail.com",
-    "password": "akshat123"
-  },
-  {
-    "name": "Brajesh Singh",
-    "department": "Store",
-    "email": "brajesh.truetone@gmail.com",
-    "password": "brajesh123"
-  },
-  {
-    "name": "Deepika Singh",
-    "department": "MDO",
-    "email": "ea.truetone@gmail.com",
-    "password": "deepika123"
-  },
-  {
-    "name": "Manish Kumar",
-    "department": "Accounts",
-    "email": "manish.truetone@gmail.com",
-    "password": "manish123"
-  },
-  {
-    "name": "Naresh Kumar",
-    "department": "Design",
-    "email": "naresh.truetone@gmail.com",
-    "password": "naresh123"
-  },
-  {
-    "name": "Naveen Singh",
-    "department": "Sales",
-    "email": "naveen.truetone@gmail.com",
-    "password": "naveen123"
-  },
-  {
-    "name": "Parveen Singh",
-    "department": "Dispatch",
-    "email": "parveen.truetone@gmail.com",
-    "password": "parveen123"
-  },
-  {
-    "name": "Raghuraj Singh",
-    "department": "Plant Control",
-    "email": "raghuraj.truetone@gmail.com",
-    "password": "raghuraj123"
-  },
-  {
-    "name": "Raj Kumar",
-    "department": "Production",
-    "email": "production.truetone@gmail.com",
-    "password": "raj123"
-  },
-  {
-    "name": "Ramesh Kishwan",
-    "department": "Administration",
-    "email": "ramesh.truetone@gmail.com",
-    "password": "ramesh123"
-  },
-  {
-    "name": "Smita Patel",
-    "department": "Quality Control",
-    "email": "smita.truetone@gmail.com",
-    "password": "smita123"
-  },
-  {
-    "name": "Subodh Garg",
-    "department": "Sales",
-    "email": "subodh.truetone@gmail.com",
-    "password": "subodh123"
-  },
-  {
-    "name": "Sunil Dubey",
-    "department": "Quality Control",
-    "email": "sunil.truetone@gmail.com",
-    "password": "sunil123"
-  }
+	{
+		"name": "Akshat K Goyal",
+		"department": "MDO",
+		"email": "mis.truetone@gmail.com",
+		"password": "akshat123"
+	},
+	{
+		"name": "Brajesh Singh",
+		"department": "Store",
+		"email": "brajesh.truetone@gmail.com",
+		"password": "brajesh123"
+	},
+	{
+		"name": "Deepika Singh",
+		"department": "MDO",
+		"email": "ea.truetone@gmail.com",
+		"password": "deepika123"
+	},
+	{
+		"name": "Manish Kumar",
+		"department": "Accounts",
+		"email": "manish.truetone@gmail.com",
+		"password": "manish123"
+	},
+	{
+		"name": "Naresh Kumar",
+		"department": "Design",
+		"email": "naresh.truetone@gmail.com",
+		"password": "naresh123"
+	},
+	{
+		"name": "Naveen Singh",
+		"department": "Sales",
+		"email": "naveen.truetone@gmail.com",
+		"password": "naveen123"
+	},
+	{
+		"name": "Parveen Singh",
+		"department": "Dispatch",
+		"email": "parveen.truetone@gmail.com",
+		"password": "parveen123"
+	},
+	{
+		"name": "Raghuraj Singh",
+		"department": "Plant Control",
+		"email": "raghuraj.truetone@gmail.com",
+		"password": "raghuraj123"
+	},
+	{
+		"name": "Raj Kumar",
+		"department": "Production",
+		"email": "production.truetone@gmail.com",
+		"password": "raj123"
+	},
+	{
+		"name": "Ramesh Kishwan",
+		"department": "Administration",
+		"email": "ramesh.truetone@gmail.com",
+		"password": "ramesh123"
+	},
+	{
+		"name": "Smita Patel",
+		"department": "Quality Control",
+		"email": "smita.truetone@gmail.com",
+		"password": "smita123"
+	},
+	{
+		"name": "Subodh Garg",
+		"department": "Sales",
+		"email": "subodh.truetone@gmail.com",
+		"password": "subodh123"
+	},
+	{
+		"name": "Sunil Dubey",
+		"department": "Quality Control",
+		"email": "sunil.truetone@gmail.com",
+		"password": "sunil123"
+	}
 ]
