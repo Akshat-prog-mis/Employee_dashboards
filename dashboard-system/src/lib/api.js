@@ -98,35 +98,40 @@ async function cachedFetch(key, fetcher) {
 /* ================= TASKS ================= */
 
 export async function fetchTasks() {
-  const email = getCurrentUserEmail();
-  return cachedFetch(`tasks:${email}`, async () => {
-    const res = await apiFetch(
-      `${API_BASES.tasks}?action=getTasks&user_email=${encodeURIComponent(email)}`
-    );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000); // 20 sec
 
-    if (!res.ok) return res;
+  try {
+    const res = await fetch(API_BASES.tasks, {
+      signal: controller.signal
+    });
 
-    const today = normalizeDate(new Date());
+    const raw = await res.json();
 
-    const data = (Array.isArray(res.data) ? res.data : [])
-      .filter(r => {
-        const p = normalizeDate(parseDate(r.Planned));
-        return (
-          r.Email?.toLowerCase() === email &&
-          !r.Actual &&
-          (!r['Task Status'] || r['Task Status'] === 'Due') &&
-          p && p <= today
-        );
-      })
-      .map(r => ({
-        id: String(r['Task ID'] || ''),
-        name: String(r.Task || ''),
-        planned: formatDate(r.Planned)
-      }));
+    // raw is already an array
+    if (!Array.isArray(raw)) {
+      return { ok: false, data: [], error: "Invalid response format" };
+    }
 
-    return { ok: true, data, error: null };
-  });
+    const mapped = raw.map(t => ({
+      id: String(t["Task ID"]),
+      name: t["Task"],
+      planned: new Date(t["Planned"]).toLocaleDateString("en-GB")
+    }));
+
+    return { ok: true, data: mapped, error: null };
+
+  } catch (err) {
+    if (err.name === "AbortError") {
+      return { ok: false, data: [], error: "TIMEOUT" };
+    }
+
+    return { ok: false, data: [], error: String(err) };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
+
 
 export async function completeTask(taskId) {
   if (!taskId) throw new Error('TASK_ID_REQUIRED');

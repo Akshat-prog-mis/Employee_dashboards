@@ -79,23 +79,39 @@
   }
 
   async function loadTasks() {
-    if (!user_email) return;
-    loading = true;
-    error = "";
-    try {
-      const allTasks = await fetchTasks();
-      tasks = [...allTasks].sort((a, b) => {
-        const dateA = new Date(a.planned.split('/').reverse().join('-'));
-        const dateB = new Date(b.planned.split('/').reverse().join('-'));
-        return sortOrder === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
-      });
-      lastUpdated = new Date();
-    } catch (err) {
-      error = "Failed to load tasks. Please try again.";
-    } finally {
-      loading = false;
+  if (!user_email) return;
+
+  loading = true;
+  error = "";
+
+  try {
+    const res = await fetchTasks();
+
+    if (!res || !res.ok) {
+      throw new Error(res?.error || "Failed to load tasks");
     }
+
+    const list = Array.isArray(res.data) ? res.data : [];
+
+    tasks = [...list].sort((a, b) => {
+      const dateA = new Date(a.planned.split('/').reverse().join('-'));
+      const dateB = new Date(b.planned.split('/').reverse().join('-'));
+      return sortOrder === 'asc'
+        ? dateA.getTime() - dateB.getTime()
+        : dateB.getTime() - dateA.getTime();
+    });
+
+    lastUpdated = new Date();
+
+  } catch (err) {
+    console.error("Load tasks failed:", err);
+    error = "Failed to load tasks. Please try again.";
+    tasks = [];
+  } finally {
+    loading = false;
   }
+}
+
 
   async function handleComplete(taskId: string) {
     tasks = tasks.filter(t => t.id !== taskId);
