@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/lib/auth.js
 import EMPLOYEES from './employees.json';
 

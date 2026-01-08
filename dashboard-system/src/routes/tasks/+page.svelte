@@ -17,7 +17,6 @@
 	let loading = false;
 	let error = '';
 	let sortOrder = 'asc';
-	let darkMode = false;
 	let lastUpdated: Date | null = null;
 
 	onMount(() => {
@@ -26,10 +25,6 @@
 			goto('/');
 			return;
 		}
-
-		const savedDark = localStorage.getItem('darkMode');
-		darkMode = savedDark === 'true';
-		document.body.classList.toggle('dark', darkMode);
 
 		const savedSort = localStorage.getItem('taskSortOrder');
 		if (savedSort === 'asc' || savedSort === 'desc') {
@@ -62,12 +57,6 @@
 		};
 	});
 
-	function toggleDarkMode() {
-		darkMode = !darkMode;
-		localStorage.setItem('darkMode', darkMode.toString());
-		document.body.classList.toggle('dark', darkMode);
-	}
-
 	function toggleSort() {
 		sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
 		localStorage.setItem('taskSortOrder', sortOrder);
@@ -87,11 +76,12 @@
 		error = '';
 
 		try {
-			const res = await fetchTasks(user_email);
+			const res = await fetchTasks();
 
 			if (!res.ok) throw new Error('Failed');
 
 			tasks = res.data;
+			console.log('Tasks loaded:', tasks);
 			lastUpdated = new Date();
 		} catch (err) {
 			error = 'Failed to load tasks';
@@ -106,7 +96,7 @@
 		tasks = tasks.filter((t) => t.id !== taskId);
 
 		try {
-			await completeTask(taskId, user_email!);
+			await completeTask(taskId);
 		} catch (err) {
 			alert('Failed. Reloading.');
 			tasks = old;
@@ -158,46 +148,6 @@
 					{/if}
 				</button>
 			{/if}
-			<button
-				class="icon-btn theme-toggle"
-				on:click={toggleDarkMode}
-				aria-label="Toggle dark mode"
-				title="Switch theme"
-			>
-				{#if darkMode}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<circle cx="12" cy="12" r="5" />
-						<line x1="12" y1="1" x2="12" y2="3" />
-						<line x1="12" y1="21" x2="12" y2="23" />
-						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-						<line x1="1" y1="12" x2="3" y2="12" />
-						<line x1="21" y1="12" x2="23" y2="12" />
-						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-					</svg>
-				{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-					</svg>
-				{/if}
-			</button>
 		</div>
 	</header>
 
@@ -209,8 +159,9 @@
 	</p>
 
 	{#if loading}
-		<div class="card">
-			<p class="loading">Loading your tasks...</p>
+		<div class="card loading-card">
+			<div class="spinner"></div>
+			<p>Loading your tasks...</p>
 		</div>
 	{:else if error}
 		<div class="card error">

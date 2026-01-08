@@ -206,6 +206,14 @@
 	cursor: not-allowed;
 }
 
+:global(body.dark) .login-card button {
+	background: #2e7d32;
+}
+
+:global(body.dark) .login-card button:hover:not(:disabled) {
+	background: #1b5e20;
+}
+
 .help-text {
 	margin-top: 20px;
 	color: #888;

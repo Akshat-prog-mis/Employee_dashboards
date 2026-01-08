@@ -176,22 +176,6 @@
 
 		<!-- Systems Section with Skeleton Loading -->
 		{#if systemsLoading && launcherItems.length === 0 && mySystemItems.length === 0}
-			<!-- My System Skeleton -->
-			<section class="systems-section">
-				<div class="section-header">
-					<h2>My System</h2>
-					<p>Tools and dashboards you're involved in</p>
-				</div>
-				<div class="cards-grid compact">
-					{#each Array(2) as _, i}
-						<div class="dashboard-card skeleton-card">
-							<div class="card-icon"></div>
-							<div class="skeleton-line short"></div>
-							<div class="skeleton-line long"></div>
-						</div>
-					{/each}
-				</div>
-			</section>
 
 			<!-- Launcher Skeleton -->
 			<section class="systems-section">
@@ -209,49 +193,25 @@
 					{/each}
 				</div>
 			</section>
-		{:else}
-			<!-- My System Real Content -->
-			{#if mySystemItems.length > 0}
-				<section class="systems-section">
-					<div class="section-header">
-						<h2>My System</h2>
-						<p>Tools and dashboards you're involved in</p>
-					</div>
-					<div class="cards-grid compact">
-						{#each mySystemItems as item}
-							<a href={item.url} class="dashboard-card" target="_blank" rel="noopener">
-								<div class="card-icon">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<rect x="2" y="3" width="20" height="14" rx="2" />
-										<path d="M8 13h8M8 17h4M8 9h8" />
-									</svg>
-								</div>
-								<h3>{item.name}</h3>
-								<p>{item.description}</p>
-								{#if item.associatedLink}
-									<button
-										type="button"
-										class="link-btn"
-										on:click|stopPropagation={() => openLink(item.associatedLink!)}
-									>
-										Associated Link
-									</button>
-								{/if}
-							</a>
-						{/each}
-					</div>
-				</section>
-			{/if}
 
-			<!-- Launcher Real Content -->
+			<!-- My System Skeleton -->
+			<section class="systems-section">
+				<div class="section-header">
+					<h2>My System</h2>
+					<p>Tools and dashboards you're involved in</p>
+				</div>
+				<div class="cards-grid compact">
+					{#each Array(2) as _, i}
+						<div class="dashboard-card skeleton-card">
+							<div class="card-icon"></div>
+							<div class="skeleton-line short"></div>
+							<div class="skeleton-line long"></div>
+						</div>
+					{/each}
+				</div>
+			</section>
+		{:else}
+						<!-- Launcher Real Content -->
 			{#if launcherItems.length > 0}
 				<section class="systems-section">
 					<div class="section-header">
@@ -280,15 +240,60 @@
 								<h3>{item.name}</h3>
 								<p>{item.description}</p>
 								{#if item.associatedLink}
-									<button
-										type="button"
+									<span
 										class="link-btn"
+										role="button"
+										tabindex="0"
 										on:click|stopPropagation={() => openLink(item.associatedLink!)}
+										on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLink(item.associatedLink!); } }}
 									>
 										Associated Link
-									</button>
+									</span>
 								{/if}
 							</button>
+						{/each}
+					</div>
+				</section>
+			{/if}
+			
+			<!-- My System Real Content -->
+			{#if mySystemItems.length > 0}
+				<section class="systems-section">
+					<div class="section-header">
+						<h2>My System</h2>
+						<p>Tools and dashboards you're involved in</p>
+					</div>
+					<div class="cards-grid compact">
+						{#each mySystemItems as item}
+							<a href={item.url} class="dashboard-card" target="_blank" rel="noopener">
+								<div class="card-icon">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<rect x="2" y="3" width="20" height="14" rx="2" />
+										<path d="M8 13h8M8 17h4M8 9h8" />
+									</svg>
+								</div>
+								<h3>{item.name}</h3>
+								<p>{item.description}</p>
+								{#if item.associatedLink}
+									<span
+										class="link-btn"
+										role="button"
+										tabindex="0"
+										on:click|stopPropagation={() => openLink(item.associatedLink!)}
+										on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLink(item.associatedLink!); } }}
+									>
+										Associated Link
+									</span>
+								{/if}
+							</a>
 						{/each}
 					</div>
 				</section>

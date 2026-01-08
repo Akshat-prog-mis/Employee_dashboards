@@ -5,6 +5,8 @@ import js from '@eslint/js';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import svelteConfig from './svelte.config.js';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsparser from '@typescript-eslint/parser';
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
@@ -21,6 +23,27 @@ const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
 	{
 		files: ['**/*.svelte', '**/*.svelte.js'],
-		languageOptions: { parserOptions: { svelteConfig } }
+		languageOptions: {
+			parser: tsparser,
+			parserOptions: {
+				svelteConfig,
+				ecmaVersion: 2022,
+				sourceType: 'module'
+			}
+		}
+	},
+
+	{
+		files: ['**/*.ts'],
+		languageOptions: {
+			parser: tsparser,
+			parserOptions: {
+				project: './jsconfig.json'
+			}
+		},
+		plugins: { '@typescript-eslint': tseslint },
+		rules: {
+			...tseslint.configs.recommended.rules
+		}
 	}
 ];

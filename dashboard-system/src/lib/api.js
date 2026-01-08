@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getAuthUser } from './auth.js';
 
 export const CACHE = new Map();
@@ -35,8 +36,6 @@ const normalizeDate = (d) => {
 	return d;
 };
 
-const formatDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB') : '');
-
 const formatDateTime = (d) =>
 	d
 		? new Date(d)
@@ -56,24 +55,34 @@ const formatDateTime = (d) =>
 async function apiFetch(url, options = {}) {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), 10000);
+
 	const proxyUrl = `${CF_PROXY}?target=${encodeURIComponent(url)}`;
 
+	console.log('API Fetch:', proxyUrl, options);
+
 	try {
-		const res = await fetch(proxyUrl, { ...options, signal: controller.signal });
+		const res = await fetch(proxyUrl, {
+			...options,
+			signal: controller.signal
+			// 🚨 DO NOT FORCE CONTENT-TYPE HERE
+		});
+
 		const text = await res.text();
+		console.log('API Response:', res.status, text);
 
 		if (text.trim().startsWith('<')) {
 			throw new Error('BACKEND_RETURNED_HTML');
 		}
 
-		const json = text ? JSON.parse(text) : null;
+		const data = text ? JSON.parse(text) : null;
 
 		if (!res.ok) {
-			throw new Error(json?.error || `HTTP_${res.status}`);
+			throw new Error(data?.error || `HTTP_${res.status}`);
 		}
 
-		return { ok: true, data: json, error: null };
+		return { ok: true, data, error: null };
 	} catch (e) {
+		console.error('API Error:', e);
 		return {
 			ok: false,
 			data: null,
@@ -98,15 +107,17 @@ async function cachedFetch(key, fetcher) {
 }
 
 /* ================= TASKS ================= */
-
 export async function fetchTasks() {
 	const email = getCurrentUserEmail();
 
 	return cachedFetch(`tasks:${email}`, async () => {
 		const res = await apiFetch(API_BASES.tasks, {
 			method: 'POST',
-			body: JSON.stringify({
-				action: 'get_tasks',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			},
+			body: new URLSearchParams({
+				action: 'getTasks', // 👈 EXACTLY what GAS expects
 				user_email: email
 			})
 		});
@@ -134,8 +145,11 @@ export async function completeTask(taskId) {
 
 	return apiFetch(API_BASES.tasks, {
 		method: 'POST',
-		body: JSON.stringify({
-			action: 'mark_completed',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded'
+		},
+		body: new URLSearchParams({
+			action: 'markCompleted', // 👈 EXACT match with GAS
 			task_id: taskId,
 			user_email: email
 		})
@@ -145,7 +159,7 @@ export async function completeTask(taskId) {
 /* ================= BIS ================= */
 
 export async function fetchBisTasks() {
-	const email = getCurrentUserEmail();
+	const email = getCurrentUserEmail().toLowerCase();
 	return cachedFetch(`bis:${email}`, async () => {
 		const res = await apiFetch(
 			`${API_BASES.bis}?action=getBisTasks&user_email=${encodeURIComponent(email)}`
@@ -216,7 +230,7 @@ const delegationFetch = (action, email, options = {}) =>
 	);
 
 export async function fetchDelegationData() {
-	const email = getCurrentUserEmail();
+	const email = getCurrentUserEmail().toLowerCase();
 	return cachedFetch(`delegation:${email}`, async () => {
 		const [tasks, users] = await Promise.all([
 			delegationFetch('get_tasks', email),

@@ -23,17 +23,6 @@
 	let error: string = '';
 	let lastUpdated: Date | null = null;
 	let sortOrder = 'asc';
-	let darkMode = false;
-
-	function applyDarkMode(isDark: boolean) {
-		darkMode = isDark;
-		if (isDark) {
-			document.body.classList.add('dark');
-		} else {
-			document.body.classList.remove('dark');
-		}
-		localStorage.setItem('darkMode', isDark.toString());
-	}
 
 	onMount(() => {
 		user_email = getAuthUser();
@@ -43,13 +32,6 @@
 		}
 
 		// ✅ Robust dark mode initialization
-		const savedDark = localStorage.getItem('darkMode') === 'true';
-		// Also respect system preference if no saved choice (optional, but safe)
-		const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-		const initialDark = localStorage.getItem('darkMode') !== null ? savedDark : prefersDark;
-
-		applyDarkMode(initialDark);
-
 		const savedSort = localStorage.getItem('bisTaskSortOrder');
 		if (savedSort === 'asc' || savedSort === 'desc') {
 			sortOrder = savedSort;
@@ -73,11 +55,6 @@
 		};
 	});
 
-	// ✅ Use applyDarkMode here too
-	function toggleDarkMode() {
-		applyDarkMode(!darkMode);
-	}
-
 	function toggleSort() {
 		sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
 		localStorage.setItem('bisTaskSortOrder', sortOrder);
@@ -95,7 +72,10 @@
 		loading = true;
 		error = '';
 		try {
-			const allTasks = await fetchBisTasks();
+			const res = await fetchBisTasks();
+			if (!res.ok) throw new Error(res.error || 'Failed to load BIS tasks');
+
+			const allTasks = res.data || [];
 			tasks = [...allTasks].sort((a, b) => {
 				const dateA = new Date(a.planned.split('/').reverse().join('-'));
 				const dateB = new Date(b.planned.split('/').reverse().join('-'));
@@ -103,7 +83,6 @@
 					? dateA.getTime() - dateB.getTime()
 					: dateB.getTime() - dateA.getTime();
 			});
-			lastUpdated = new Date();
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		} finally {
@@ -164,46 +143,6 @@
 						{/if}
 					</button>
 				{/if}
-				<button
-					class="icon-btn theme-toggle"
-					on:click={toggleDarkMode}
-					aria-label="Toggle dark mode"
-					title="Switch theme"
-				>
-					{#if darkMode}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<circle cx="12" cy="12" r="5" />
-							<line x1="12" y1="1" x2="12" y2="3" />
-							<line x1="12" y1="21" x2="12" y2="23" />
-							<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-							<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-							<line x1="1" y1="12" x2="3" y2="12" />
-							<line x1="21" y1="12" x2="23" y2="12" />
-							<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-							<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-						</svg>
-					{:else}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-						</svg>
-					{/if}
-				</button>
 			</div>
 		</div>
 
@@ -211,7 +150,7 @@
 
 		{#if lastUpdated}
 			<p class="last-updated">
-				Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+				Updated: {(lastUpdated as Date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
 			</p>
 		{/if}
 	</div>
